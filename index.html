@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>얼리버드 출석부</title>
+<style>
+  :root{
+    --bg:#FBF5F7;
+    --sidebar:#F3E8EE;
+    --card:#FFFFFF;
+    --border:#E9D7E0;
+    --accent:#FF8FB3;
+    --accent-dark:#E76A95;
+    --text:#3F3A4B;
+    --mute:#9C92A6;
+    --check:#7FCBA4;
+    --dot-empty:#EFE3EA;
+    --shadow:0 6px 18px rgba(231,106,149,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,-apple-system,sans-serif;
+    background:var(--bg); color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .layout{display:grid; grid-template-columns:1fr 340px; height:100vh}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr; height:auto}
+    .sidebar{order:2; position:relative; height:auto}
+  }
+
+  /* Header */
+  .main{display:flex; flex-direction:column; min-width:0; padding:24px 28px}
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  .title{
+    font-size:clamp(28px,3.4vw,40px); font-weight:800; letter-spacing:-.5px;
+    color:var(--accent-dark);
+  }
+  .title .star{display:inline-block; transform:translateY(-2px); margin:0 8px}
+  .clock{font-size:18px; color:var(--text); font-weight:600}
+  .clock .tag{margin-left:10px; padding:4px 10px; border-radius:999px; font-size:13px; font-weight:700}
+  .tag.on{background:#E1F4EA; color:#2E8C5C}
+  .tag.off{background:#FFE0E8; color:#C8497A}
+  .summary{margin:14px 0 6px; color:var(--mute); font-size:14px}
+  .divider{height:2px; background:var(--border); border-radius:2px; margin:6px 0 14px}
+
+  /* Grid */
+  .grid{
+    display:grid; gap:18px;
+    grid-template-columns:repeat(5, minmax(0,1fr));
+    overflow:auto; padding:8px 4px 30px;
+    flex:1;
+  }
+  @media (max-width:1200px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media (max-width:900px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (max-width:600px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  .card{
+    background:var(--card);
+    border:2px solid var(--border);
+    border-radius:24px;
+    padding:18px 14px 14px;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+    transition:transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    position:relative;
+    box-shadow:var(--shadow);
+  }
+  .card:hover{transform:translateY(-3px); border-color:var(--accent)}
+  .card:active{transform:scale(.97)}
+  .card.done{border-color:var(--check); background:#FBFFFC}
+
+  .avatar{
+    width:108px; height:108px; border-radius:50%;
+    margin:6px auto 10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:46px; line-height:1; position:relative;
+  }
+  .avatar .face{font-size:38px}
+  .check{
+    position:absolute; right:-4px; top:-4px;
+    width:38px; height:38px; border-radius:50%;
+    background:var(--check); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:20px;
+    box-shadow:0 4px 10px rgba(127,203,164,.4);
+    border:3px solid #fff;
+    opacity:0; transform:scale(.6);
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .card.done .check{opacity:1; transform:scale(1)}
+
+  .name{font-size:24px; font-weight:800; letter-spacing:-.5px; margin-top:4px}
+  .dots{display:flex; justify-content:center; gap:8px; margin:10px 0 4px}
+  .dot{width:14px; height:14px; border-radius:50%; background:var(--dot-empty)}
+  .dot.on{background:var(--accent)}
+  .week{font-size:12px; color:var(--mute)}
+  .total{
+    margin-top:6px; padding:3px 10px;
+    display:inline-block;
+    font-size:12px; font-weight:700; color:var(--accent-dark);
+    background:#FFF0F5; border-radius:999px;
+  }
+
+  /* Tabs */
+  .tabs{
+    display:flex; gap:4px;
+    border-bottom:2px solid var(--border);
+    margin-bottom:14px;
+  }
+  .tab{
+    padding:10px 22px; background:transparent; border:none;
+    font-family:inherit; font-size:15px; font-weight:700;
+    color:var(--mute); cursor:pointer;
+    border-bottom:3px solid transparent; transform:translateY(2px);
+    transition:color .15s, border-color .15s;
+  }
+  .tab:hover{color:var(--accent-dark)}
+  .tab.active{color:var(--accent-dark); border-bottom-color:var(--accent)}
+  .panel{display:none; flex:1; min-height:0; overflow:auto}
+  .panel.active{display:flex; flex-direction:column}
+
+  /* Monthly view */
+  .month-bar{
+    display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .month-bar input[type=month]{
+    padding:8px 12px; border-radius:10px;
+    border:1px solid var(--border); background:#fff;
+    font-family:inherit; font-size:15px; color:var(--text);
+  }
+  .stats{display:flex; gap:10px; flex-wrap:wrap}
+  .stat-card{
+    background:#fff; border:2px solid var(--border); border-radius:14px;
+    padding:8px 16px; min-width:110px;
+  }
+  .stat-card .lbl{font-size:11px; color:var(--mute); font-weight:700; letter-spacing:.5px}
+  .stat-card .val{font-size:20px; color:var(--accent-dark); font-weight:800}
+
+  .rank-row{
+    display:grid;
+    grid-template-columns:38px 1fr 90px;
+    gap:12px; align-items:center;
+    padding:12px 16px;
+    background:#fff; border:1px solid var(--border); border-radius:14px;
+    margin-bottom:8px;
+  }
+  .rank-num{
+    font-weight:800; color:var(--accent-dark); text-align:center;
+    background:#FFF0F5; border-radius:8px; padding:4px 0; font-size:14px;
+  }
+  .rank-name-block .rank-name{font-weight:700; font-size:16px; margin-bottom:6px}
+  .rank-bar-wrap{height:8px; background:#F4E8EE; border-radius:999px; overflow:hidden}
+  .rank-bar{height:100%; background:linear-gradient(90deg, var(--accent), var(--accent-dark)); transition:width .3s ease}
+  .rank-dates{font-size:11px; color:var(--mute); margin-top:6px; line-height:1.5; word-break:keep-all}
+  .rank-count{text-align:right; font-weight:800; color:var(--accent-dark); font-size:20px}
+  .rank-count .of{display:block; color:var(--mute); font-weight:500; font-size:11px}
+  .month-empty{padding:60px 0; text-align:center; color:var(--mute); font-size:16px}
+
+  /* Sidebar */
+  .sidebar{
+    background:var(--sidebar); border-left:2px solid var(--border);
+    padding:24px 22px; overflow-y:auto;
+  }
+  .sidebar h1{
+    font-size:20px; margin:0 0 18px; color:var(--text);
+    display:flex; align-items:center; gap:8px;
+  }
+  .section{margin-bottom:18px}
+  .section-title{
+    font-size:13px; font-weight:800; color:var(--accent-dark);
+    text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;
+  }
+  .row{display:flex; gap:8px; align-items:center; margin-bottom:8px}
+  .row label{font-size:13px; color:var(--text); width:42px}
+  .row input[type=time]{
+    flex:1; padding:8px 10px; border-radius:10px;
+    border:1px solid var(--border); background:#fff; font-size:15px;
+    font-family:inherit; color:var(--text);
+  }
+  .hint{font-size:11px; color:var(--mute); margin-top:-2px}
+
+  .btn{
+    width:100%; padding:11px 14px; margin-top:6px;
+    background:#fff; color:var(--text);
+    border:1px solid var(--border); border-radius:12px;
+    font-family:inherit; font-size:14px; font-weight:700;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease, transform .1s ease;
+  }
+  .btn:hover{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .btn.primary:hover{background:var(--accent-dark); border-color:var(--accent-dark)}
+  .btn.danger:hover{background:#E76A95; color:#fff; border-color:#E76A95}
+
+  .info{font-size:12px; color:var(--text); line-height:1.6}
+  .info code{background:#fff; padding:2px 6px; border-radius:6px; font-size:11px}
+
+  /* Lock bar */
+  .lock-bar{
+    display:flex; gap:8px; align-items:center;
+    padding:10px 12px;
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    margin-bottom:16px;
+  }
+  .lock-status{flex:1; font-weight:700; font-size:13px; color:var(--text)}
+  .lock-toggle-btn{
+    background:var(--accent); color:#fff; border:none;
+    padding:7px 13px; border-radius:8px;
+    font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .lock-toggle-btn:hover{background:var(--accent-dark)}
+  .sidebar.locked #sidebarContent{display:none}
+
+  /* Toast */
+  #toast{
+    position:fixed; left:50%; bottom:32px; transform:translateX(-50%);
+    background:#fff; color:var(--text);
+    border:2px solid var(--border); border-radius:14px;
+    padding:14px 22px; font-weight:700; font-size:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+    opacity:0; transition:opacity .2s ease, transform .2s ease;
+    pointer-events:none;
+  }
+  #toast.show{opacity:1; transform:translate(-50%,-6px)}
+  #toast.ok{border-color:var(--check); color:#2E8C5C}
+  #toast.err{border-color:var(--accent); color:var(--accent-dark)}
+
+  /* Modal */
+  .modal-bg{
+    position:fixed; inset:0; background:rgba(63,58,75,.35);
+    display:none; align-items:center; justify-content:center; z-index:50;
+  }
+  .modal-bg.show{display:flex}
+  .modal{
+    background:#fff; border-radius:20px; padding:24px;
+    width:min(440px, 90vw); box-shadow:0 20px 50px rgba(0,0,0,.18);
+  }
+  .modal h2{margin:0 0 12px; font-size:20px; color:var(--accent-dark)}
+  .modal textarea{
+    width:100%; min-height:160px; resize:vertical;
+    border-radius:12px; border:1px solid var(--border);
+    padding:10px; font-family:inherit; font-size:14px;
+  }
+  .modal .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:14px}
+
+  /* Pop animation */
+  @keyframes pop{0%{transform:scale(.8)} 60%{transform:scale(1.12)} 100%{transform:scale(1)}}
+  .card.pop{animation:pop .35s ease}
+
+  /* Face flip animation */
+  @keyframes faceFlip{
+    0%{transform:rotateY(0) scale(1)}
+    50%{transform:rotateY(90deg) scale(.7)}
+    100%{transform:rotateY(0) scale(1)}
+  }
+  .card.pop .face{animation:faceFlip .45s ease}
+
+  /* sparkles */
+  .sparkle{
+    position:absolute; font-size:22px; color:var(--accent);
+    pointer-events:none; animation:sparkleAnim .8s ease forwards;
+  }
+  @keyframes sparkleAnim{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.4)}
+    20%{opacity:1}
+    100%{opacity:0; transform:translate(var(--dx,0),var(--dy,-40px)) scale(1.4)}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="main">
+    <div class="topbar">
+      <div class="title"><span class="star">☆</span>EARLY BIRD<span class="star">☆</span></div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+    <div class="summary" id="summary">불러오는 중…</div>
+    <div class="divider"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="check">출석체크</button>
+      <button class="tab" data-tab="monthly">월별 기록</button>
+    </div>
+
+    <div class="panel active" data-panel="check">
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="panel" data-panel="monthly">
+      <div class="month-bar">
+        <input type="month" id="monthPicker">
+        <div class="stats" id="monthlyStats"></div>
+      </div>
+      <div id="monthlyList"></div>
+    </div>
+  </div>
+
+  <aside class="sidebar locked" id="sidebar">
+    <h1>✿ 선생님 메뉴</h1>
+
+    <div class="lock-bar">
+      <span class="lock-status" id="lockStatus">🔒 잠금</span>
+      <button class="lock-toggle-btn" id="lockToggle">잠금 해제</button>
+    </div>
+
+    <div id="sidebarContent">
+    <div class="section">
+      <div class="section-title">출석 시간</div>
+      <div class="row"><label>시작</label><input type="time" id="startTime"></div>
+      <div class="row"><label>종료</label><input type="time" id="endTime"></div>
+      <div class="hint">이 시간 안에서만 출석을 누를 수 있어요</div>
+      <button class="btn primary" id="saveTimeBtn">시간 저장</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">명렬표</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt" style="display:none">
+      <button class="btn" id="uploadBtn">명렬표 파일 가져오기</button>
+      <button class="btn" id="pasteBtn">이름 직접 붙여넣기</button>
+      <div class="hint" style="margin-top:6px">엑셀(.xlsx)·CSV·텍스트(한 줄에 한 명) 지원</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">출석 관리</div>
+      <button class="btn danger" id="resetTodayBtn">오늘 기록 리셋</button>
+      <button class="btn danger" id="resetWeekBtn">이번 주 기록 리셋</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">백업</div>
+      <button class="btn" id="exportBtn">데이터 내보내기 (JSON)</button>
+      <button class="btn" id="importBtn">데이터 가져오기 (JSON)</button>
+      <input type="file" id="jsonInput" accept=".json" style="display:none">
+    </div>
+
+    <div class="section">
+      <div class="section-title">정보</div>
+      <div class="info" id="info"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">보안</div>
+      <button class="btn" id="changePinBtn">관리자 PIN 변경</button>
+      <div class="hint" style="margin-top:6px">PIN을 잊으면 브라우저 설정에서 사이트 데이터 삭제 시 복구 가능 (출석 기록도 같이 지워짐)</div>
+    </div>
+    </div><!-- /#sidebarContent -->
+  </aside>
+</div>
+
+<div id="toast"></div>
+
+<div class="modal-bg" id="pasteModal">
+  <div class="modal">
+    <h2>이름 붙여넣기</h2>
+    <p style="font-size:13px;color:var(--mute);margin:0 0 8px">한 줄에 한 명씩 이름을 적어주세요. "전출", "결번"은 자동 제외됩니다.</p>
+    <textarea id="pasteArea" placeholder="강하윤&#10;권서연&#10;김가은&#10;…"></textarea>
+    <div class="actions">
+      <button class="btn" id="pasteCancel" style="width:auto">취소</button>
+      <button class="btn primary" id="pasteOk" style="width:auto">불러오기</button>
+    </div>
+  </div>
+</div>
+
+<!-- SheetJS for xlsx parsing (CDN). If offline, paste-name option still works. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+(() => {
+  // ---------- Initial data ----------
+  const DEFAULT_STUDENTS = [
+    {name:"강하윤",num:1},{name:"권서연",num:2},{name:"김가은",num:3},
+    {name:"김태은",num:5},{name:"민가영",num:6},{name:"박민서",num:7},
+    {name:"박채원",num:8},{name:"배서영",num:9},{name:"서예진",num:10},
+    {name:"안태은",num:11},{name:"위서현",num:12},{name:"유지수",num:13},
+    {name:"이가륜",num:14},{name:"이서윤",num:15},{name:"이은수",num:16},
+    {name:"이주은",num:17},{name:"이하윤",num:19},{name:"이해린",num:20},
+    {name:"차희원",num:21},{name:"최선민",num:22},{name:"한영은",num:23},
+    {name:"한채영",num:24},{name:"조은솔",num:25}
+  ];
+
+  const DEFAULT_FACE  = "🙂";
+  const DONE_PALETTE  = ["😄","🤓","🥰","😆","😊","🤩","😎","😋","🥳","☺️","😌","🙌"];
+  const COLOR_PALETTE = [
+    "#FFD3DC","#FFC9DE","#E5D4F1","#D4E5F7","#CFEFE0",
+    "#FFE5B4","#FFDCE4","#E1D7F5","#D2EAF5","#FFE9CC"
+  ];
+
+  // ---------- Storage ----------
+  const KEY = {
+    students:"eb_students", attendance:"eb_attendance", settings:"eb_settings"
+  };
+  const load = (k, d) => {
+    try{const v = localStorage.getItem(k); return v ? JSON.parse(v) : d}
+    catch(e){return d}
+  };
+  const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+  let students = load(KEY.students, null);
+  if(!students || !Array.isArray(students) || students.length===0){
+    students = DEFAULT_STUDENTS.slice();
+    save(KEY.students, students);
+  }
+  let attendance = load(KEY.attendance, {}); // {name:[{date:"YYYY-MM-DD",time:"HH:MM:SS"}]}
+  let settings = Object.assign({startTime:"07:00", endTime:"07:30"}, load(KEY.settings, {}));
+
+  // ---------- Helpers ----------
+  const $ = sel => document.querySelector(sel);
+  const fmtDate = d => d.toISOString().slice(0,10);
+  const todayStr = () => fmtDate(new Date());
+  const mondayOf = d => {
+    const x = new Date(d); const dow = (x.getDay()+6)%7; // mon=0
+    x.setHours(0,0,0,0); x.setDate(x.getDate()-dow); return x;
+  };
+  const parseHHMM = s => {
+    if(!s) return null;
+    const m = s.match(/^(\d{1,2}):(\d{2})$/); if(!m) return null;
+    return [parseInt(m[1],10), parseInt(m[2],10)];
+  };
+  function hashIdx(str, mod){
+    let h = 0;
+    for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+    return h % mod;
+  }
+  const colorFor = n => COLOR_PALETTE[hashIdx(n, COLOR_PALETTE.length)];
+  const doneEmojiFor = n => DONE_PALETTE[hashIdx(n+"_d", DONE_PALETTE.length)];
+
+  function withinWindow(now=new Date()){
+    const s = parseHHMM(settings.startTime), e = parseHHMM(settings.endTime);
+    if(!s||!e) return {ok:false, msg:"시간 설정이 잘못되었어요"};
+    const start = new Date(now); start.setHours(s[0],s[1],0,0);
+    const end = new Date(now); end.setHours(e[0],e[1],0,0);
+    if(now<start) return {ok:false, msg:`아직 출석 시간이 아니에요 (${settings.startTime}부터)`};
+    if(now>end)   return {ok:false, msg:`출석 시간이 끝났어요 (${settings.endTime}까지)`};
+    return {ok:true, msg:""};
+  }
+  const isCheckedToday = name =>
+    (attendance[name]||[]).some(r=>r.date===todayStr());
+  const weekCount = name => {
+    const wkStart = mondayOf(new Date());
+    return (attendance[name]||[]).filter(r=>{
+      const d = new Date(r.date+"T00:00:00"); return d>=wkStart;
+    }).length;
+  };
+  const totalCount = name => (attendance[name]||[]).length;
+
+  // ---------- Render ----------
+  function renderGrid(){
+    const grid = $("#grid");
+    grid.innerHTML = "";
+    if(!students.length){
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:80px 0;color:var(--mute);font-size:18px">
+        명렬표를 가져와 주세요 → 오른쪽 [명렬표 파일 가져오기]</div>`;
+      return;
+    }
+    for(const st of students){
+      const done = isCheckedToday(st.name);
+      const wk = weekCount(st.name);
+      const tot = totalCount(st.name);
+      const card = document.createElement("div");
+      card.className = "card" + (done ? " done" : "");
+      card.dataset.name = st.name;
+      card.innerHTML = `
+        <div class="avatar" style="background:${colorFor(st.name)}">
+          <span class="face">${done ? doneEmojiFor(st.name) : DEFAULT_FACE}</span>
+          <div class="check">✓</div>
+        </div>
+        <div class="name">${st.name}</div>
+        <div class="dots">
+          ${[0,1,2,3,4].map(i=>`<div class="dot ${i<wk?"on":""}"></div>`).join("")}
+        </div>
+        <div class="week">이번 주 ${wk}/5</div>
+        <div class="total">누적 ${tot}회</div>
+      `;
+      card.addEventListener("click", () => onCardClick(st.name, card));
+      grid.appendChild(card);
+    }
+  }
+
+  function refreshSummary(){
+    const today = students.filter(s=>isCheckedToday(s.name)).length;
+    $("#summary").textContent =
+      `오늘 출석  ${today} / ${students.length}    ·    출석 가능 시간 ${settings.startTime} ~ ${settings.endTime}`;
+    $("#info").innerHTML = `
+      오늘 출석: <b>${today} / ${students.length}</b><br>
+      이번 주 시작: <code>${fmtDate(mondayOf(new Date()))}</code><br>
+      저장 위치: 이 브라우저 (localStorage)<br>
+      등록 학생 수: ${students.length}명
+    `;
+  }
+
+  function renderMonthly(){
+    const picker = $("#monthPicker");
+    if(!picker.value){
+      const now = new Date();
+      picker.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    }
+    const [year, month] = picker.value.split("-").map(Number);
+
+    const inMonth = r => {
+      const d = new Date(r.date+"T00:00:00");
+      return d.getFullYear()===year && d.getMonth()+1===month;
+    };
+
+    const dateSet = new Set();
+    for(const recs of Object.values(attendance)){
+      for(const r of recs){ if(inMonth(r)) dateSet.add(r.date); }
+    }
+    const businessDays = dateSet.size;
+
+    const perStudent = students.map(st => {
+      const dates = (attendance[st.name]||[]).filter(inMonth).map(r=>r.date).sort();
+      return {name:st.name, count:dates.length, dates};
+    }).sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name, "ko"));
+
+    const totalAttendance = perStudent.reduce((s,x)=>s+x.count,0);
+    const avg = students.length ? (totalAttendance/students.length).toFixed(1) : "0";
+    const presentStudents = perStudent.filter(x=>x.count>0).length;
+
+    $("#monthlyStats").innerHTML = `
+      <div class="stat-card"><div class="lbl">출석한 날</div><div class="val">${businessDays}일</div></div>
+      <div class="stat-card"><div class="lbl">총 출석</div><div class="val">${totalAttendance}회</div></div>
+      <div class="stat-card"><div class="lbl">학생당 평균</div><div class="val">${avg}회</div></div>
+      <div class="stat-card"><div class="lbl">출석한 학생</div><div class="val">${presentStudents}명</div></div>
+    `;
+
+    if(!students.length){
+      $("#monthlyList").innerHTML = `<div class="month-empty">학생 명단이 없어요</div>`;
+      return;
+    }
+    if(businessDays===0){
+      $("#monthlyList").innerHTML = `<div class="month-empty">${year}년 ${month}월에는 출석 기록이 없어요</div>`;
+      return;
+    }
+
+    const maxCount = Math.max(...perStudent.map(s=>s.count), 1);
+    $("#monthlyList").innerHTML = perStudent.map((s,i) => {
+      const pct = (s.count/maxCount)*100;
+      const dayList = s.dates.map(d => parseInt(d.slice(8), 10)).join(", ");
+      return `
+        <div class="rank-row">
+          <div class="rank-num">${i+1}</div>
+          <div class="rank-name-block">
+            <div class="rank-name">${s.name}</div>
+            <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
+            <div class="rank-dates">${s.dates.length ? `출석한 날: ${dayList}일` : "출석 없음"}</div>
+          </div>
+          <div class="rank-count">${s.count}회<span class="of">/ ${businessDays}일 중</span></div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function isMonthlyActive(){
+    const p = document.querySelector('.panel[data-panel="monthly"]');
+    return p && p.classList.contains("active");
+  }
+  function refreshMonthlyIfActive(){ if(isMonthlyActive()) renderMonthly(); }
+
+  function switchTab(name){
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab===name));
+    document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.dataset.panel===name));
+    if(name==="monthly") renderMonthly();
+  }
+
+  function updateClock(){
+    const now = new Date();
+    const w = withinWindow(now);
+    const hh = String(now.getHours()).padStart(2,"0");
+    const mm = String(now.getMinutes()).padStart(2,"0");
+    const ss = String(now.getSeconds()).padStart(2,"0");
+    const date = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    const tag = w.ok
+      ? `<span class="tag on">● 출석 가능</span>`
+      : `<span class="tag off">● 출석 시간 아님</span>`;
+    $("#clock").innerHTML = `${date}  ${hh}:${mm}:${ss}  ${tag}`;
+  }
+
+  // ---------- Actions ----------
+  function onCardClick(name, card){
+    const w = withinWindow();
+    if(!w.ok){ toast(w.msg,"err"); return; }
+
+    // Already checked → ask to cancel (only allowed inside the time window)
+    if(isCheckedToday(name)){
+      if(!confirm(`${name} 학생의 오늘 출석을 취소할까요?`)) return;
+      attendance[name] = (attendance[name] || []).filter(r => r.date !== todayStr());
+      if(!attendance[name].length) delete attendance[name];
+      save(KEY.attendance, attendance);
+      renderGrid(); refreshSummary(); refreshMonthlyIfActive();
+      toast(`${name} 출석을 취소했어요`);
+      return;
+    }
+
+    const now = new Date();
+    const recs = attendance[name] || (attendance[name]=[]);
+    recs.push({date: todayStr(), time: now.toTimeString().slice(0,8)});
+    save(KEY.attendance, attendance);
+    renderGrid();
+    refreshSummary();
+    refreshMonthlyIfActive();
+    const newCard = document.querySelector(`.card[data-name="${CSS.escape(name)}"]`);
+    if(newCard) celebrate(newCard);
+  }
+
+  function celebrate(card){
+    card.classList.add("pop");
+    setTimeout(()=>card.classList.remove("pop"), 400);
+    const rect = card.getBoundingClientRect();
+    const positions = [[-30,-20],[30,-20],[-20,20],[20,20]];
+    for(const [dx,dy] of positions){
+      const s = document.createElement("div");
+      s.className="sparkle"; s.textContent="✦";
+      s.style.left = (rect.left+rect.width/2)+"px";
+      s.style.top  = (rect.top+rect.height/2)+"px";
+      s.style.setProperty("--dx", dx+"px");
+      s.style.setProperty("--dy", dy+"px");
+      document.body.appendChild(s);
+      setTimeout(()=>s.remove(), 850);
+    }
+  }
+
+  let toastTimer = null;
+  function toast(msg, kind="ok"){
+    const t = $("#toast");
+    t.textContent = msg;
+    t.className = "show " + kind;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ t.className = ""; }, 2200);
+  }
+
+  function saveTime(){
+    const s = $("#startTime").value, e = $("#endTime").value;
+    if(!parseHHMM(s) || !parseHHMM(e)){ toast("시간 형식이 잘못됐어요","err"); return; }
+    settings.startTime = s; settings.endTime = e;
+    save(KEY.settings, settings);
+    refreshSummary(); updateClock();
+    toast(`출석 시간 ${s} ~ ${e} 로 저장`);
+  }
+
+  // ---------- Name list parsing ----------
+  const EXCLUDE = new Set(["전출","전학","전퇴","자퇴","휴학","결번","결원","-"]);
+
+  function setStudentsFromList(items){
+    items = items.filter(it=>{
+      const n = (it.name||"").trim();
+      return n && !EXCLUDE.has(n);
+    });
+    if(!items.length){ toast("불러올 이름을 찾지 못했어요","err"); return; }
+    if(!confirm(`학생 ${items.length}명을 명단으로 설정할까요?\n(기존 출석 기록은 그대로 유지됩니다)`)) return;
+    students = items;
+    save(KEY.students, students);
+    renderGrid(); refreshSummary(); refreshMonthlyIfActive();
+    toast(`학생 ${items.length}명을 불러왔어요`);
+  }
+
+  function parseTextList(text){
+    return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+      .map((name,i)=>({name, num:i+1}));
+  }
+
+  function parseXlsx(arrayBuffer){
+    if(!window.XLSX){
+      toast("엑셀 파서를 불러오지 못했어요. 인터넷 연결 확인 또는 [이름 직접 붙여넣기]를 써주세요","err");
+      return null;
+    }
+    const wb = XLSX.read(arrayBuffer, {type:"array"});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+    if(!rows.length) return [];
+    const header = rows[0].map(c => (c==null?"":String(c).trim()));
+    let nameIdx = header.findIndex(h => h.includes("이름") || h.toLowerCase()==="name");
+    let numIdx  = header.findIndex(h => h.includes("번호") || ["no","num"].includes(h.toLowerCase()));
+    if(nameIdx<0) nameIdx = header.length-1;
+    const out = [];
+    for(let i=1;i<rows.length;i++){
+      const r = rows[i]; if(!r) continue;
+      const name = r[nameIdx];
+      if(name==null) continue;
+      const num = numIdx>=0 ? r[numIdx] : null;
+      // 번호 칸이 있는 시트인데 번호가 비어있으면 전출/결번일 가능성 → 스킵
+      if(numIdx>=0 && (num==null || num==="")) continue;
+      out.push({name:String(name).trim(), num: num==null?null:Number(num)});
+    }
+    return out;
+  }
+
+  function parseCsv(text){
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if(!lines.length) return [];
+    const head = lines[0].split(",").map(s=>s.trim());
+    let nameIdx = head.findIndex(h=>h.includes("이름")||h.toLowerCase()==="name");
+    let numIdx  = head.findIndex(h=>h.includes("번호")||["no","num"].includes(h.toLowerCase()));
+    if(nameIdx<0) nameIdx = head.length-1;
+    const out=[];
+    for(let i=1;i<lines.length;i++){
+      const cols = lines[i].split(",");
+      const name = cols[nameIdx];
+      if(!name) continue;
+      const num = numIdx>=0 ? cols[numIdx] : null;
+      if(numIdx>=0 && (num==null || num==="")) continue;
+      out.push({name:name.trim(), num: num==null?null:Number(num)});
+    }
+    return out;
+  }
+
+  function handleFile(file){
+    const name = file.name.toLowerCase();
+    const reader = new FileReader();
+    reader.onload = e => {
+      try{
+        if(name.endsWith(".xlsx") || name.endsWith(".xls")){
+          const items = parseXlsx(e.target.result);
+          if(items) setStudentsFromList(items);
+        } else if(name.endsWith(".csv")){
+          setStudentsFromList(parseCsv(e.target.result));
+        } else {
+          setStudentsFromList(parseTextList(e.target.result));
+        }
+      }catch(ex){
+        console.error(ex);
+        toast("파일을 읽을 수 없어요: "+ex.message,"err");
+      }
+    };
+    if(name.endsWith(".xlsx") || name.endsWith(".xls")) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file, "utf-8");
+  }
+
+  function resetToday(){
+    if(!confirm("오늘 출석 기록만 지울까요?")) return;
+    const t = todayStr();
+    for(const n of Object.keys(attendance)){
+      attendance[n] = (attendance[n]||[]).filter(r=>r.date!==t);
+      if(!attendance[n].length) delete attendance[n];
+    }
+    save(KEY.attendance, attendance);
+    renderGrid(); refreshSummary(); refreshMonthlyIfActive();
+    toast("오늘 기록을 리셋했어요");
+  }
+  function resetWeek(){
+    if(!confirm("이번 주 출석 기록을 모두 지울까요?")) return;
+    const wk = mondayOf(new Date());
+    for(const n of Object.keys(attendance)){
+      attendance[n] = (attendance[n]||[]).filter(r => new Date(r.date+"T00:00:00") < wk);
+      if(!attendance[n].length) delete attendance[n];
+    }
+    save(KEY.attendance, attendance);
+    renderGrid(); refreshSummary(); refreshMonthlyIfActive();
+    toast("이번 주 기록을 리셋했어요");
+  }
+
+  function exportJson(){
+    const data = {
+      version:1, exportedAt:new Date().toISOString(),
+      students, attendance, settings
+    };
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `얼리버드_백업_${todayStr()}.json`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    toast("백업 파일을 저장했어요");
+  }
+  function importJson(file){
+    const reader = new FileReader();
+    reader.onload = e => {
+      try{
+        const data = JSON.parse(e.target.result);
+        if(!data.students||!data.attendance) throw new Error("형식이 맞지 않아요");
+        if(!confirm("현재 데이터를 백업 내용으로 덮어쓸까요?")) return;
+        students = data.students; attendance = data.attendance;
+        if(data.settings) settings = Object.assign(settings, data.settings);
+        save(KEY.students, students); save(KEY.attendance, attendance); save(KEY.settings, settings);
+        $("#startTime").value = settings.startTime; $("#endTime").value = settings.endTime;
+        renderGrid(); refreshSummary(); refreshMonthlyIfActive();
+        toast("백업을 불러왔어요");
+      }catch(ex){ toast("백업 파일을 읽지 못했어요: "+ex.message,"err"); }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  // ---------- Admin lock ----------
+  let unlocked = false; // session state, not persisted — every refresh starts locked
+
+  function applyLockState(){
+    const hasPin = !!settings.adminPin;
+    const sb = $("#sidebar");
+    if(!hasPin){
+      sb.classList.remove("locked");
+      $("#lockStatus").textContent = "🔓 PIN 미설정";
+      $("#lockToggle").textContent = "관리자 PIN 설정";
+      return;
+    }
+    sb.classList.toggle("locked", !unlocked);
+    $("#lockStatus").textContent = unlocked ? "🔓 잠금 해제됨" : "🔒 잠금";
+    $("#lockToggle").textContent = unlocked ? "다시 잠그기" : "잠금 해제";
+  }
+
+  function onLockToggleClick(){
+    const hasPin = !!settings.adminPin;
+    if(!hasPin){
+      const p = prompt("관리자 PIN을 설정하세요 (4자리 이상)\n학생들이 시간/명단을 못 바꾸게 하는 비밀번호예요");
+      if(p === null) return;
+      const v = p.trim();
+      if(v.length < 4){ toast("PIN은 4자리 이상","err"); return; }
+      settings.adminPin = v;
+      save(KEY.settings, settings);
+      unlocked = true;
+      applyLockState();
+      toast("PIN을 설정했어요");
+      return;
+    }
+    if(unlocked){
+      unlocked = false;
+      applyLockState();
+      toast("잠겼습니다");
+      return;
+    }
+    const entered = prompt("관리자 PIN을 입력하세요");
+    if(entered === null) return;
+    if(entered === settings.adminPin){
+      unlocked = true;
+      applyLockState();
+      toast("잠금 해제");
+    } else {
+      toast("PIN이 일치하지 않아요","err");
+    }
+  }
+
+  function changePin(){
+    const cur = prompt("현재 PIN을 입력하세요");
+    if(cur === null) return;
+    if(cur !== settings.adminPin){ toast("PIN이 일치하지 않아요","err"); return; }
+    const next = prompt("새 PIN (4자리 이상)");
+    if(next === null) return;
+    const v = next.trim();
+    if(v.length < 4){ toast("PIN은 4자리 이상","err"); return; }
+    settings.adminPin = v;
+    save(KEY.settings, settings);
+    toast("PIN을 변경했어요");
+  }
+
+  // ---------- Wire up ----------
+  $("#startTime").value = settings.startTime;
+  $("#endTime").value   = settings.endTime;
+  $("#saveTimeBtn").addEventListener("click", saveTime);
+  $("#uploadBtn").addEventListener("click", () => $("#fileInput").click());
+  $("#fileInput").addEventListener("change", e => {
+    const f = e.target.files[0]; if(f) handleFile(f); e.target.value="";
+  });
+  $("#pasteBtn").addEventListener("click", () => {
+    $("#pasteArea").value = "";
+    $("#pasteModal").classList.add("show");
+    setTimeout(()=>$("#pasteArea").focus(), 50);
+  });
+  $("#pasteCancel").addEventListener("click", ()=>$("#pasteModal").classList.remove("show"));
+  $("#pasteOk").addEventListener("click", ()=>{
+    const items = parseTextList($("#pasteArea").value);
+    $("#pasteModal").classList.remove("show");
+    setStudentsFromList(items);
+  });
+  $("#resetTodayBtn").addEventListener("click", resetToday);
+  $("#resetWeekBtn").addEventListener("click", resetWeek);
+  $("#exportBtn").addEventListener("click", exportJson);
+  $("#importBtn").addEventListener("click", () => $("#jsonInput").click());
+  $("#jsonInput").addEventListener("change", e => {
+    const f = e.target.files[0]; if(f) importJson(f); e.target.value="";
+  });
+
+  // Tabs + month picker
+  document.querySelectorAll(".tab").forEach(t => {
+    t.addEventListener("click", () => switchTab(t.dataset.tab));
+  });
+
+  // Lock
+  $("#lockToggle").addEventListener("click", onLockToggleClick);
+  $("#changePinBtn").addEventListener("click", changePin);
+  applyLockState();
+  (function initMonth(){
+    const now = new Date();
+    $("#monthPicker").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    $("#monthPicker").addEventListener("change", renderMonthly);
+  })();
+
+  renderGrid();
+  refreshSummary();
+  updateClock();
+  setInterval(updateClock, 1000);
+  // Re-render every minute so dots refresh at midnight and time-window state updates
+  setInterval(()=>{ renderGrid(); refreshSummary(); refreshMonthlyIfActive(); }, 60000);
+})();
+</script>
+</body>
+</html>
