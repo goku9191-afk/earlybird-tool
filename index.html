@@ -338,6 +338,12 @@
     </div>
 
     <div class="section">
+      <div class="section-title">출결 내보내기</div>
+      <button class="btn primary" id="exportExcelBtn">📊 엑셀로 내보내기 (.xlsx)</button>
+      <div class="hint" style="margin-top:6px">월별 기록 탭에서 선택한 달 기준으로 저장돼요</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">백업</div>
       <button class="btn" id="exportBtn">데이터 내보내기 (JSON)</button>
       <button class="btn" id="importBtn">데이터 가져오기 (JSON)</button>
@@ -774,6 +780,36 @@
     toast("이번 주 기록을 리셋했어요");
   }
 
+  function exportExcel(){
+    if(!window.XLSX){ toast("엑셀 라이브러리를 불러오지 못했어요","err"); return; }
+    const picker = $("#monthPicker");
+    const now = new Date();
+    let exportYear = now.getFullYear(), exportMonth = now.getMonth()+1;
+    if(picker && picker.value){
+      const [y,m] = picker.value.split("-").map(Number);
+      exportYear = y; exportMonth = m;
+    }
+    const daysInMonth = new Date(exportYear, exportMonth, 0).getDate();
+    const inMonth = r => {
+      const d = new Date(r.date+"T00:00:00");
+      return d.getFullYear()===exportYear && d.getMonth()+1===exportMonth;
+    };
+    const header = ["번호","이름",...Array.from({length:daysInMonth},(_,i)=>`${i+1}일`),"출석횟수"];
+    const rows = students.map((st,idx) => {
+      const recs = (attendance[st.name]||[]).filter(inMonth);
+      const timeByDay = {};
+      recs.forEach(r => { timeByDay[parseInt(r.date.slice(8),10)] = r.time.slice(0,5); });
+      const dayCells = Array.from({length:daysInMonth},(_,i) => timeByDay[i+1]||"");
+      return [st.num||idx+1, st.name, ...dayCells, recs.length];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([header,...rows]);
+    ws['!cols'] = [{wch:6},{wch:10},...Array(daysInMonth).fill({wch:7}),{wch:8}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${exportYear}년 ${exportMonth}월`);
+    XLSX.writeFile(wb, `얼리버드_출결_${exportYear}-${String(exportMonth).padStart(2,"0")}.xlsx`);
+    toast(`${exportYear}년 ${exportMonth}월 출결을 엑셀로 저장했어요`);
+  }
+
   function exportJson(){
     const data = {
       version:1, exportedAt:new Date().toISOString(),
@@ -870,6 +906,7 @@
   $("#startTime").value = settings.startTime;
   $("#endTime").value   = settings.endTime;
   $("#saveTimeBtn").addEventListener("click", saveTime);
+  $("#exportExcelBtn").addEventListener("click", exportExcel);
   $("#uploadBtn").addEventListener("click", () => $("#fileInput").click());
   $("#fileInput").addEventListener("change", e => {
     const f = e.target.files[0]; if(f) handleFile(f); e.target.value="";
