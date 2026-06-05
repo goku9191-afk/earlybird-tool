@@ -451,6 +451,15 @@
       const d = new Date(r.date+"T00:00:00"); return d>=wkStart;
     }).length;
   };
+  const weekDays = name => {
+    const wkStart = mondayOf(new Date());
+    const days = new Set();
+    (attendance[name]||[]).forEach(r => {
+      const d = new Date(r.date+"T00:00:00");
+      if(d >= wkStart){ const dow = (d.getDay()+6)%7; if(dow<5) days.add(dow); }
+    });
+    return days;
+  };
   const totalCount = name => (attendance[name]||[]).length;
   const todayCheckTime = name => {
     const rec = (attendance[name]||[]).find(r => r.date === todayStr());
@@ -469,6 +478,7 @@
     for(const st of students){
       const done = isCheckedToday(st.name);
       const wk = weekCount(st.name);
+      const wkDays = weekDays(st.name);
       const tot = totalCount(st.name);
       const checkTime = done ? todayCheckTime(st.name) : null;
       const card = document.createElement("div");
@@ -482,7 +492,7 @@
         <div class="name">${st.name}</div>
         <div class="check-time">${checkTime ? checkTime : ""}</div>
         <div class="dots">
-          ${[0,1,2,3,4].map(i=>`<div class="dot ${i<wk?"on":""}"></div>`).join("")}
+          ${[0,1,2,3,4].map(i=>`<div class="dot ${wkDays.has(i)?"on":""}"></div>`).join("")}
         </div>
         <div class="week">이번 주 ${wk}/5</div>
         <div class="total">누적 ${tot}회</div>
