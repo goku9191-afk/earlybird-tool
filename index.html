@@ -105,6 +105,10 @@
     font-size:12px; font-weight:700; color:var(--accent-dark);
     background:#FFF0F5; border-radius:999px;
   }
+  .check-time{
+    font-size:13px; font-weight:700; color:var(--check);
+    margin-top:3px; min-height:18px; letter-spacing:.5px;
+  }
 
   /* Tabs */
   .tabs{
@@ -448,6 +452,10 @@
     }).length;
   };
   const totalCount = name => (attendance[name]||[]).length;
+  const todayCheckTime = name => {
+    const rec = (attendance[name]||[]).find(r => r.date === todayStr());
+    return rec ? rec.time.slice(0,5) : null;
+  };
 
   // ---------- Render ----------
   function renderGrid(){
@@ -462,6 +470,7 @@
       const done = isCheckedToday(st.name);
       const wk = weekCount(st.name);
       const tot = totalCount(st.name);
+      const checkTime = done ? todayCheckTime(st.name) : null;
       const card = document.createElement("div");
       card.className = "card" + (done ? " done" : "");
       card.dataset.name = st.name;
@@ -471,6 +480,7 @@
           <div class="check">✓</div>
         </div>
         <div class="name">${st.name}</div>
+        <div class="check-time">${checkTime ? checkTime : ""}</div>
         <div class="dots">
           ${[0,1,2,3,4].map(i=>`<div class="dot ${i<wk?"on":""}"></div>`).join("")}
         </div>
@@ -514,8 +524,8 @@
     const businessDays = dateSet.size;
 
     const perStudent = students.map(st => {
-      const dates = (attendance[st.name]||[]).filter(inMonth).map(r=>r.date).sort();
-      return {name:st.name, count:dates.length, dates};
+      const recs = (attendance[st.name]||[]).filter(inMonth).sort((a,b)=>a.date.localeCompare(b.date));
+      return {name:st.name, count:recs.length, recs};
     }).sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name, "ko"));
 
     const totalAttendance = perStudent.reduce((s,x)=>s+x.count,0);
@@ -541,14 +551,14 @@
     const maxCount = Math.max(...perStudent.map(s=>s.count), 1);
     $("#monthlyList").innerHTML = perStudent.map((s,i) => {
       const pct = (s.count/maxCount)*100;
-      const dayList = s.dates.map(d => parseInt(d.slice(8), 10)).join(", ");
+      const dayList = s.recs.map(r => `${parseInt(r.date.slice(8),10)}일 ${r.time.slice(0,5)}`).join("  ·  ");
       return `
         <div class="rank-row">
           <div class="rank-num">${i+1}</div>
           <div class="rank-name-block">
             <div class="rank-name">${s.name}</div>
             <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
-            <div class="rank-dates">${s.dates.length ? `출석한 날: ${dayList}일` : "출석 없음"}</div>
+            <div class="rank-dates">${s.recs.length ? `출석: ${dayList}` : "출석 없음"}</div>
           </div>
           <div class="rank-count">${s.count}회<span class="of">/ ${businessDays}일 중</span></div>
         </div>
