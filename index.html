@@ -421,7 +421,7 @@
 
   // ---------- Helpers ----------
   const $ = sel => document.querySelector(sel);
-  const fmtDate = d => d.toISOString().slice(0,10);
+  const fmtDate = d => { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; };
   const todayStr = () => fmtDate(new Date());
   const mondayOf = d => {
     const x = new Date(d); const dow = (x.getDay()+6)%7; // mon=0
