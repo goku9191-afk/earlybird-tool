@@ -438,7 +438,7 @@
     return h % mod;
   }
   const colorFor = n => COLOR_PALETTE[hashIdx(n, COLOR_PALETTE.length)];
-  const doneEmojiFor = n => DONE_PALETTE[hashIdx(n+"_d", DONE_PALETTE.length)];
+  const doneEmojiFor = n => DONE_PALETTE[hashIdx(n+new Date().toISOString().slice(0,10), DONE_PALETTE.length)];
 
   function withinWindow(now=new Date()){
     const s = parseHHMM(settings.startTime), e = parseHHMM(settings.endTime);
